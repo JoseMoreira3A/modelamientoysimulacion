@@ -212,706 +212,741 @@ def calcularCongruencialMultiplicativo():
     return render_template('imprimirCongruencialMultiplicativo.html', data=data, image=plot_url)
 
 
-@app.route('/promedioMovil')
-def promedioMovil():
-    return render_template('promedioMovil.html')
 
-@app.route('/imprimirPromedioMovil')
-def imprimirPromedioMovil():
-    return render_template('imprimirPromedioMovil.html')
+######## Promedisos Inicio   ####
+@app.route('/prommovil', methods=("POST", "GET"))
+def prommovil():
 
-@app.route('/calcularPromedioMovil', methods=['GET','POST'])
-def calcularPromedioMovil():
-    file = request.files['file'].read()
-
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from pandas import ExcelWriter
-    from matplotlib import pyplot as plt
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    from matplotlib.figure import Figure
+    from flask import Blueprint, Flask, render_template, make_response, request, send_file
+    from wtforms import Form, FloatField, validators,StringField, IntegerField
+    from numpy import exp, cos, linspace
+    from math import pi
     import io
-    from io import BytesIO 
-    import base64
-
-    # el DataFrame se llama movil
-    #exporta = {'Año':[2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017],
-    #           'Exportaciones':[5501.0, 6232.7, 8118.3, 10137.00, 10449.50, 12794.60, 9939.10, 13193.00, 16036.2, 18496.90, 18709.30, 19363.50, 16521.50, 15175.40, 16927.00]}
-    file = pd.read_excel(file)
-    movil =  pd.DataFrame(file)
-    movil.head()
-    # calculamos para la primera media móvil MMO_3
-    for i in range(0,movil.shape[0]-2):
-     movil.loc[movil.index[i+2],'MMO_3'] = np.round(((movil.iloc[i,1]+movil.iloc[i+1,1]+movil.iloc[i+2,1])/3),1)
-    # calculamos para la segunda media móvil MMO_4
-    for i in range(0,movil.shape[0]-3):
-     movil.loc[movil.index[i+3],'MMO_4'] = np.round(((movil.iloc[i,1]+movil.iloc[i+1,1]+movil.iloc[i+2,1]+movil.iloc[i+
-    3,1])/4),1)
-    # calculamos la proyeción final
-    proyeccion = movil.iloc[12:,[1,2,3]]
-    p1,p2,p3 =proyeccion.mean()
-    # incorporamos al DataFrame
-    df = movil.append({'Periodo':'Proximo','Promedio':p1, 'MMO_3':p2, 'MMO_4':p3},ignore_index=True)
-    # mostramos los resultados
-    df['e_MM3'] = df['Promedio']-df['MMO_3']
-    df['e_MM4'] = df['Promedio']-df['MMO_4']
-    df
-
-    buf = io.BytesIO()
-    #plt.figure(figsize=[8,8])
-    plt.grid(True)
-    plt.plot(df['Promedio'],label='Promedio',marker='o')
-    plt.plot(df['MMO_3'],label='Media Móvil 3 Periodos')
-    plt.plot(df['MMO_4'],label='Media Móvil 4 Periodos')
-    plt.legend(loc=2)
-    fig = plt.gcf()
-    canvas = FigureCanvasAgg(fig)
-    canvas.print_png(buf)
-    fig.clear()
-    plot_url = base64.b64encode(buf.getvalue()).decode('UTF-8') 
-
-    data= df.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
-
-    writer = ExcelWriter("static/file/data.xlsx")
-    df.to_excel(writer, index=False)
-    writer.save()          
-    
-    df.to_csv("static/file/data.csv", index=False) 
-
-    return render_template('imprimirPromedioMovil.html', data=data, image=plot_url)
-
-
-@app.route('/suavizacionExponencial')
-def suavizacionExponencial():
-    return render_template('suavizacionExponencial.html')
-
-@app.route('/imprimirSuavizacionExponencial')
-def imprimirSuavizacionExponencial():
-    return render_template('imprimirSuavizacionExponencial.html')
-
-@app.route('/calcularSuavizacionExponencial', methods=['GET','POST'])
-def calcularSuavizacionExponencial():
-    file = request.files['file'].read()
-
-    import pandas as pd
+    import random
+    import os, time, glob
     import numpy as np
-    import matplotlib.pyplot as plt
-    from pandas import ExcelWriter
-    from matplotlib import pyplot as plt
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    from matplotlib.figure import Figure
-    import io
-    from io import BytesIO 
-    import base64
-
-    # el DataFrame se llama movil
-    #exporta = {'Año':[2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017],
-    #           'Exportaciones':[5501.0, 6232.7, 8118.3, 10137.00, 10449.50, 12794.60, 9939.10, 13193.00, 16036.2, 18496.90, 18709.30, 19363.50, 16521.50, 15175.40, 16927.00]}
-    file = pd.read_excel(file)
-    movil =  pd.DataFrame(file)
-    # mostramos los 5 primeros registros
-    movil.head()
-    alfa = 0.1
-    unoalfa = 1. - alfa
-    for i in range(0,movil.shape[0]-1):
-     movil.loc[movil.index[i+1],'SN'] = np.round(movil.iloc[i,1],1)
-    for i in range(2,movil.shape[0]):
-     movil.loc[movil.index[i],'SN'] = np.round(movil.iloc[i-1,1],1)*alfa + np.round(movil.iloc[i-1,2],1)*unoalfa
-    i=i+1
-    p1=0
-    p2=np.round(movil.iloc[i-1,1],1)*alfa + np.round(movil.iloc[i-1,2],1)*unoalfa
-    df = movil.append({'Periodo':'proximo','Promedio':p1, 'SN':p2},ignore_index=True)
-    df
-
-    buf = io.BytesIO()
-    #plt.figure(figsize=[8,8])
-    plt.grid(True)
-    plt.plot(df['Promedio'],label='Promedio',marker='o')
-    plt.plot(df['SN'],label='SN')
-    plt.legend(loc=2)
-    fig = plt.gcf()
-    canvas = FigureCanvasAgg(fig)
-    canvas.print_png(buf)
-    fig.clear()
-    plot_url = base64.b64encode(buf.getvalue()).decode('UTF-8') 
-
-    data= df.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
-
-    writer = ExcelWriter("static/file/data.xlsx")
-    df.to_excel(writer, index=False)
-    writer.save()          
-    
-    df.to_csv("static/file/data.csv", index=False) 
-
-    return render_template('imprimirSuavizacionExponencial.html', data=data, image=plot_url)
-
-
-@app.route('/regresionLineal')
-def regresionLineal():
-    return render_template('regresionLineal.html')
-
-@app.route('/imprimirRegresionLineal')
-def imprimirRegresionLineal():
-    return render_template('imprimirRegresionLineal.html')
-
-@app.route('/calcularRegresionLineal', methods=['GET','POST'])
-def calcularRegresionLineal():
-    file = request.files['file'].read()
-
     import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from pandas import ExcelWriter
-    from matplotlib import pyplot as plt
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
     from matplotlib.figure import Figure
-    import io
-    from io import BytesIO 
-    import base64
-
-    # el DataFrame se llama movil
-    #exporta = {'Año':[2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017],
-    #           'Exportaciones':[5501.0, 6232.7, 8118.3, 10137.00, 10449.50, 12794.60, 9939.10, 13193.00, 16036.2, 18496.90, 18709.30, 19363.50, 16521.50, 15175.40, 16927.00]}
-    file = pd.read_excel(file)
-    a = pd.DataFrame(file)
-    x = a["X"]
-    y= a["Y"]
-    # ajuste de la recta (polinomio de grado 1 f(x) = ax + b)
-    p = np.polyfit(x,y,1) # 1 para lineal, 2 para polinomio ...
-    p0,p1 = p
-
-    xx=x**2
-    xx
-    # multiplicacion de X e Y
-    xy= x*y
-    xy
-    #Y al cuadrado
-    yy= y**2
-    yy
-    df2 = pd.DataFrame({"X": x, "Y": y,"XX": xx,"XY": xy,"YY": yy})
-    df2
-
-    total1 = df2['X'].sum()
-    total1
-    total2 = df2['Y'].sum()
-    total2
-    total3 = df2['XX'].sum()
-    total3
-    total4 = df2['XY'].sum()
-    total4
-    total5 = df2['YY'].sum()
-    total5
-
-    df = pd.DataFrame({"X": x, "Y": y,"XX": xx,"XY": xy,"YY": yy})
-    df.loc['Sumatoria']=[total1,total2,total3,total4,total5]
-    df
-    # y(x) = poX + p1 = 49.53676471X -242.41911765
-    # calculamos los valores ajustados y_ajuste
-    buf = io.BytesIO()
-    y_ajuste = p[0]*x + p[1]
-    print (y_ajuste)
-    # dibujamos los datos experimentales de la recta
-    p_datos =plt.plot(x,y,'b.')
-    # Dibujamos la recta de ajuste
-    p_ajuste = plt.plot(x,y_ajuste, 'r-')
-    plt.title('Ajuste lineal por mínimos cuadrados')
-    plt.xlabel('Eje x')
-    plt.ylabel('Eje y')
-    plt.legend(('Datos experimentales','Ajuste lineal',), loc="upper left")
-    fig = plt.gcf()
-    canvas = FigureCanvasAgg(fig)
-    canvas.print_png(buf)
-    fig.clear()
-    plot_url = base64.b64encode(buf.getvalue()).decode('UTF-8')
-
-    data= df.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
-
-    writer = ExcelWriter("static/file/data.xlsx")
-    df.to_excel(writer, index=False)
-    writer.save()          
-    
-    df.to_csv("static/file/data.csv", index=False) 
-
-    return render_template('imprimirRegresionLineal.html', data=data, image=plot_url)
-
-
-@app.route('/regresionLinealCuadrada')
-def regresionLinealCuadrada():
-    return render_template('regresionLinealCuadrada.html')
-
-@app.route('/imprimirRegresionLinealCuadrada')
-def imprimirRegresionLinealCuadrada():
-    return render_template('imprimirRegresionLinealCuadrada.html')
-
-@app.route('/calcularRegresionLinealCuadrada', methods=['GET','POST'])
-def calcularRegresionLinealCuadrada():
-    file = request.files['file'].read()
-
-    import pandas as pd
-    import numpy as np
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    from pandas import ExcelWriter
-    from matplotlib import pyplot as plt
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    from matplotlib.figure import Figure
-    import io
-    from io import BytesIO 
-    import base64
 
-    # el DataFrame se llama movil
-    #exporta = {'Año':[2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017],
-    #           'Exportaciones':[5501.0, 6232.7, 8118.3, 10137.00, 10449.50, 12794.60, 9939.10, 13193.00, 16036.2, 18496.90, 18709.30, 19363.50, 16521.50, 15175.40, 16927.00]}
-    file = pd.read_excel(file)
-    a = pd.DataFrame(file)
-    x = a["X"]
-    y = a["Y"]
-    # ajuste de la recta (polinomio de grado 1 f(x) = ax + b)
-    pp = np.polyfit(x,y,2)
-    pp0,pp1,pp2 = pp
-
-    xx2=x**2
-    xx2
-    xx3=x**3
-    xx3
-    xx4=x**4
-    xx4
-    # multiplicacion de X e Y
-    xy= x*y
-    xy
-    #Y al cuadrado
-    yy= xx2*y
-    yy
-
-    df3 = pd.DataFrame({"X": x, "Y": y,"XX": xx2,"X3": xx3,"X4": xx4,"XY": xy,"X2Y": yy})
-    df3
-
-    total1 = df3['XX'].sum()
-    total1
-    total2 = df3['X3'].sum()
-    total2
-    total3 = df3['X4'].sum()
-    total3
-    total4 = df3['XY'].sum()
-    total4
-    total5 = df3['X2Y'].sum()
-    total5
-    total6 = df3['X'].sum()
-    total6
-    total7 = df3['Y'].sum()
-    total7
-
-    df = pd.DataFrame({"X": x, "Y": y,"XX": xx2,"X3": xx3,"X4": xx4,"XY": xy,"X2Y": yy})
-    df.loc['Sumatoria']=[total6,total7,total1,total2,total3,total4,total5]
-    df
-    # y(x) = poX + p1 = 49.53676471X -242.41911765
-    # calculamos los valores ajustados y_ajuste
-    buf = io.BytesIO()
-    # calculamos los valores ajustados y_ajuste
-    y_ajuste = pp[0]*x*x + pp[1]*x + pp[2]
-    print (y_ajuste)
-    # dibujamos los datos experimentales de la recta
-    p_datos =plt.plot(x,y,'b.')
-    # Dibujamos la curva de ajuste
-    p_ajuste = plt.plot(x,y_ajuste, 'r-')
-    plt.title('Ajuste Polinomial por mínimos cuadrados')
-    plt.xlabel('Eje x')
-    plt.ylabel('Eje y')
-    plt.legend(('Datos experimentales','Ajuste Polinomial',), loc="upper left")
-    fig = plt.gcf()
-    canvas = FigureCanvasAgg(fig)
-    canvas.print_png(buf)
-    fig.clear()
-    plot_url = base64.b64encode(buf.getvalue()).decode('UTF-8')
-
-    data= df.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
-
-    writer = ExcelWriter("static/file/data.xlsx")
-    df.to_excel(writer, index=False)
-    writer.save()          
+    class InputForm(Form):
+        N = StringField(
+            label='Escriba los valores a ingresar separados por comas (,)', default='5, 6 ,8, 7, 9, 10',
+            validators=[validators.InputRequired()])
     
-    df.to_csv("static/file/data.csv", index=False) 
+    form = InputForm(request.form)
+    if request.method == 'POST' and form.validate():
+        ### Promedio Móvil
+        # Vamos a crear un DataFrame con los datos y luego procederemos a calcular el promedio movil MMO_3 = 3 y MMO_4 = 4
+        # el DataFrame se llama movil
+        prueba = str(form.N.data)
+        ex = prueba.split(",")
+        ex2 =list(map(float,ex))
+        exporta = {'Año':ex2,
+        'Valores':ex2}
+        movil = pd.DataFrame(exporta)
 
-    return render_template('imprimirRegresionLinealCuadrada.html', data=data, image=plot_url)
+        prediccion = len(ex2)
+        predfinal = prediccion - 3
+        # mostramos los 5 primeros registros
+        # calculamos para la primera media móvil MMO_3
+        for i in range(0,movil.shape[0]-2):
+            movil.loc[movil.index[i+2],'Promedio a 3'] = np.round(((movil.iloc[i,1]+movil.iloc[i+1,1]+movil.iloc[i+2,1])/3),1)
+        # calculamos para la segunda media móvil MMO_4
+        for i in range(0,movil.shape[0]-3):
+            movil.loc[movil.index[i+3],'Promedio a 4'] = np.round(((movil.iloc[i,1]+movil.iloc[i+1,1]+movil.iloc[i+2,1]+movil.iloc[i+
+        3,1])/4),1)
+        # calculamos la proyeción final
+        proyeccion = movil.iloc[predfinal:,[1,2,3]]
+        p1,p2,p3 =proyeccion.mean()
+        # incorporamos al DataFrame
+        a = movil.append({'Año':2018,'Valores':p1, 'Promedio a 3':p2, 'Promedio a 4':p3},ignore_index=True)
+        # mostramos los resultados
+        a['Error promedio 3'] = a['Valores']-a['Promedio a 3']
+        a['Error promedio 4'] = a['Valores']-a['Promedio a 4']
+        df = a
 
+        dftemp1 = df['Valores']
+        dftemp2 = df['Promedio a 3']
+        dftemp3 = df['Promedio a 4']
+        dftemp4 = df['Error promedio 3']
+        dftemp5 = df['Error promedio 4']
+        resv1 = dftemp1[0]
+        resv2 = dftemp1[1]
+        resv3 = dftemp1[2]
+        resv4 = dftemp1[3]
 
+        resv5 = dftemp2[2]
+        resv6 = dftemp3[3]
+        resv7 = dftemp4[2]
+        resv8 = dftemp5[3]
 
-
-@app.route('/montecarlo')
-def montecarlo():
-    return render_template('montecarlo.html')
-
-@app.route('/imprimirMontecarlo')
-def imprimirMontecarlo():
-    return render_template('imprimirMontecarlo.html')
-
-@app.route('/calcularMontecarlo', methods=['GET','POST'])
-def calcularMontecarlo():
-    n = request.form.get("numeroIteraciones", type=int)
-    x0 = request.form.get("semilla", type=int) 
-    a = request.form.get("multiplicador", type=int)
-    c = request.form.get("incremento", type=int)
-    m = request.form.get("modulo", type=int)
-
-    file = request.files['file'].read()
-
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from pandas import ExcelWriter
-    from matplotlib import pyplot as plt
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    from matplotlib.figure import Figure
-    import io
-    from io import BytesIO 
-    import base64
-    from pandas import DataFrame
-
-    file = pd.read_excel(file)
-    tot = pd.DataFrame(file)
-    #x = a["X"]
-    #tot = a["Y"]
-
-    # Generamos los 62 # aleatorios por cualquiera de los métodos estudiados y luego podemos realizar la simulación
-    # Generador de números aleatorios Congruencia lineal
-    # Borland C/C++ xi+1=22695477xi + 1 mod 2^32
-    #n, m, a, x0, c = 52, 2**32, 22695477, 4, 1
-    x = [1] * n
-    r = [0.1] * n
-    for i in range(0, n):
-     x[i] = ((a*x0)+c) % m
-     x0 = x[i]
-     r[i] = x0 / m
-    # llenamos nuestro DataFrame
-    d = {'ri': r }
-    dfMCL = pd.DataFrame(data=d)
-    dfMCL
-
-    # Ordenamos por Día
-    suma = tot['Y'].sum()
-    n=len(tot)
-    suma
-    x1 = tot.assign(Probabilidad=lambda x: x['Y'] / suma)
-    x2 = x1.sort_values('X')
-    a=x2['Probabilidad']
-    a
-
-    a1= np.cumsum(a) #Cálculo la suma acumulativa de las probabilidades
-    x2['FPA'] =a1
-    x2
-
-    x2['Min'] = x2['FPA']
-    x2['Max'] = x2['FPA']
-    x2
-
-
-    lis = x2["Min"].values
-    lis2 = x2['Max'].values
-    lis[0]= 0
-    for i in range(1,7):
-     lis[i] = lis2[i-1]
-    x2['Min'] = lis
-    x2
-
-    max = x2 ['Max'].values
-    min = x2 ['Min'].values
-
-    x2
-
-    x2 = pd.DataFrame(x2)
-
-    data= x2.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
-
-
-    def busqueda(arrmin, arrmax, valor):
-        #print(valor)
-        for i in range (len(arrmin)):
-        # print(arrmin[i],arrmax[i])
-            if valor >= arrmin[i] and valor <= arrmax[i]:
-                return i
-     
-        return -1
-    xpos = dfMCL['ri']
-    posi = [0] * n
-    
-    for j in range(n):
-        val = xpos[j]
-        pos = busqueda(min,max,val)
-        posi[j] = pos
-    x2 = x2.astype({"X" : int})
-    
-
-    import itertools
-    import math
-    simula = []
-    for j in range(n):
-        for i in range(n):
-            sim = x2.loc[x2["X"] == posi[i]+1]
-            simu = sim.filter(['Y']).values
-            iterator = itertools.chain(*simu)
-            for item in iterator:
-                a=item
-            simula.append(round(a,2))
-    simula
-
-    dfMCL["Simulación"] = pd.DataFrame(simula)
-    dfMCL["Costo de Atención"] = dfMCL["Simulación"] * 50
-    dfMCL
-
-    buf = io.BytesIO()
-    plt.plot(dfMCL['Simulación'], label='Simulación')
-    plt.plot(dfMCL['Costo de Atención'],label='Costo de Atención')
-    plt.legend()
-    
-    fig = plt.gcf()
-    canvas = FigureCanvasAgg(fig)
-    canvas.print_png(buf)
-    fig.clear()
-    plot_url = base64.b64encode(buf.getvalue()).decode('UTF-8')
-
-    data2= dfMCL.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
-
-    writer = ExcelWriter("static/file/data.xlsx")                
-    dfMCL.to_excel(writer, index=False)
-    writer.save()          
-                
-    dfMCL.to_csv("static/file/data.csv", index=False) 
-
-    return render_template('imprimirMontecarlo.html', data=data, data2=data2, image=plot_url)
-
-
-@app.route('/sistemaInventario')
-def sistemaInventario():
-    return render_template('sistemaInventario.html')
-
-@app.route('/imprimirSistemaInventario')
-def imprimirSistemaInventario():
-    return render_template('imprimirSistemaInventario.html')
-
-@app.route('/calcularSistemaInventario', methods=['GET','POST'])
-def calcularSistemaInventario():
-    D = request.form.get("demanda", type=float)
-    Co = request.form.get("costoOrdenar", type=float) 
-    Ch = request.form.get("costoMantenimiento", type=float)
-    P = request.form.get("costoProducto", type=float)
-    Tespera = request.form.get("tiempoEspera", type=float)
-    DiasAno = request.form.get("diasAno", type=int)
-    num = request.form.get("numeroIteraciones", type=int)
-
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from pandas import ExcelWriter
-    from matplotlib import pyplot as plt
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    from matplotlib.figure import Figure
-    import io
-    from io import BytesIO 
-    import base64
-    import math
-    from math import sqrt
-    from pandas import DataFrame
-
-    Q = round(sqrt(((2*Co*D)/Ch)),2)
-    N = round(D / Q,2)
-    R = round((D / DiasAno) * Tespera,2)
-    T = round(DiasAno / N,2)
-    CoT = N * Co
-    ChT = round(Q / 2 * Ch,2)
-    MOQ = round(CoT + ChT,2)
-    CTT = round(P * D + MOQ,2)
-
-    df = pd.DataFrame(columns=('Q', 'N', 'R', 'T', 'CoT', 'ChT', 'MOQ', 'CTT'))
-    df.loc[len(df)]=[Q, N, R, T, CoT, ChT, MOQ, CTT] 
-    df
-
-    data= df.to_html(classes="table table-striped", justify="justify-all", border=0)
-
-    # Programa para generar el gráfico de costo mínimo
-    indice = ['Q','Costo_ordenar','Costo_Mantenimiento','Costo_total','Diferencia_Costo_Total']
-    # Generamos una lista ordenada de valores de Q    
-    
-    periodo = np.arange(0,num)
-      
-    def genera_lista(Q):
-        n=num
-        Q_Lista = []
-        i=1
-        Qi = Q
-        Q_Lista.append(Qi)
-        for i in range(1,9):
-            Qi = Qi - 60
-            Q_Lista.append(Qi)
-        
-        Qi = Q
-        for i in range(9, n):
-            Qi = Qi + 60
-            Q_Lista.append(Qi)
-        return Q_Lista
-    
-    Lista= genera_lista(Q)
-    Lista.sort()
-    
-    dfQ = DataFrame(index=periodo, columns=indice).fillna(0)
-    
-    dfQ['Q'] = Lista
-    #dfQ
-
-    for period in periodo:
-        dfQ['Costo_ordenar'][period] = D * Co / dfQ['Q'][period]
-        dfQ['Costo_Mantenimiento'][period] = dfQ['Q'][period] * Ch / 2
-        dfQ['Costo_total'][period] = dfQ['Costo_ordenar'][period] + dfQ['Costo_Mantenimiento'][period]
-        dfQ['Diferencia_Costo_Total'][period] = dfQ['Costo_total'][period] - MOQ
-    dfQ
-
-    # Graficamos los numeros generados
-    buf = io.BytesIO()
-    plt.plot(dfQ['Costo_ordenar'], label='Costo_ordenar')
-    plt.plot(dfQ['Costo_Mantenimiento'],label='Costo_Mantenimiento')
-    plt.plot(dfQ['Costo_total'],label='Costo_total')
-    plt.legend()
-    
-    fig = plt.gcf()
-    canvas = FigureCanvasAgg(fig)
-    canvas.print_png(buf)
-    fig.clear()
-    plot_url = base64.b64encode(buf.getvalue()).decode('UTF-8')
-
-    data2 = dfQ.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
-
-    def make_data(product, policy, periods):
-        periods += 1
-        # Create zero-filled Dataframe
-        period_lst = np.arange(periods) # index
-        header = ['INV_INICIAL','INV_NETO_INICIAL','DEMANDA', 'INV_FINAL','INV_FINAL_NETO', 'VENTAS_PERDIDAS', 'INV_PROMEDIO', 'CANT_ORDENAR', 'TIEMPO_LLEGADA']
-        df = DataFrame(index=period_lst, columns=header).fillna(0)
-        # Create a list that will store each period order
-        order_l = [Order(quantity=0, lead_time=0)
-                   for x in range(periods)]
-                        # Fill DataFrame
-        for period in period_lst:
-            if period == 0:
-                df['INV_INICIAL'][period] = product.initial_inventory 
-                df['INV_NETO_INICIAL'][period] = product.initial_inventory
-                df['INV_FINAL'][period] = product.initial_inventory
-                df['INV_FINAL_NETO'][period] = product.initial_inventory
-            if period >= 1:
-                df['INV_INICIAL'][period] = df['INV_FINAL'][period - 1] + order_l[period - 1].quantity
-                df['INV_NETO_INICIAL'][period] = df['INV_FINAL_NETO'][period - 1] + pending_order(order_l, period)
-                #demand = int(product.demand())
-                demand = D
-                # We can't have negative demand
-                if demand > 0:
-                    df['DEMANDA'][period] = demand
-                else:
-                    df['DEMANDA'][period] = 0
-                # We can't have negative INV_INICIAL
-                if df['INV_INICIAL'][period] - df['DEMANDA'][period] < 0:
-                    df['INV_FINAL'][period] = 0
-                else:
-                    df['INV_FINAL'][period] = df['INV_INICIAL'][period] - df['DEMANDA'][period]
-                order_l[period].quantity, order_l[period].lead_time = placeorder(product, df['INV_FINAL'][period], policy,period)
-                df['INV_FINAL_NETO'][period] = df['INV_NETO_INICIAL'][period] - df['DEMANDA'][period]
-                if df['INV_FINAL_NETO'][period] < 0:
-                    df['VENTAS_PERDIDAS'][period] = abs(df['INV_FINAL_NETO'][period])
-                    df['INV_FINAL_NETO'][period] = 0
-                else:
-                    df['VENTAS_PERDIDAS'][period] = 0
-                df['INV_PROMEDIO'][period] = (df['INV_NETO_INICIAL'][period] + df['INV_FINAL_NETO'][period]) / 2.0
-                df['CANT_ORDENAR'][period] = order_l[period].quantity
-                df['TIEMPO_LLEGADA'][period] = order_l[period].lead_time
-        return df           
-    def pending_order(order_l, period):
-        """Return the order that arrives in actual period"""
-        indices = [i for i, order in enumerate(order_l) if order.quantity]
-        sum = 0
-        for i in indices:
-            if period-(i+ order_l[i].lead_time+1) ==0:
-                sum += order_l[i].quantity
-        return sum
-    def demanda(self):
-            if self.demand_dist == "Constant":
-                return self.demand_p1
-            elif self.demand_dist == "Normal":
-                return make_distribution(
-                    np.random.normal,
-                    self.demand_p1,
-                    self.demand_p2)()
-            elif self.demand_dist == "Triangular":
-                return make_distribution(
-                    np.random_triangular,
-                    self.demand_p1,
-                    self.demand_p2,
-                    self.demand_p3)()
-    def lead_time(self):
-            if self.leadtime_dist == "Constant":
-                return self.leadtime_p1
-            elif self.leadtime_dist == "Normal":
-                return make_distribution(
-                    np.random.normal,
-                    self.leadtime_p1,
-                    self.leadtime_p2)()
-            elif self.leadtime_dist == "Triangular":
-                return make_distribution(
-                    np.random_triangular,
-                    self.leadtime_p1,
-                    self.leadtime_p2,
-                    self.leadtime_p3)()
-    def __repr__(self):
-            return '<Product %r>' % self.name
-                        
-    def placeorder(product, final_inv_pos, policy, period):                
-        #lead_time = int(product.lead_time())
-        lead_time = Tespera
-        # Qs = if we hit the reorder point s, order Q units
-        if policy['method'] == 'Qs' and \
-                final_inv_pos <= policy['param2']:
-            return policy['param1'], lead_time
-        # RS = if we hit the review period R and the reorder point S, order: (S -
-        # final inventory pos)
-        elif policy['method'] == 'RS' and \
-            period % policy['param1'] == 0 and \
-                final_inv_pos <= policy['param2']:
-            return policy['param2'] - final_inv_pos, lead_time
+        plt.figure(figsize=[8,8])
+        plt.grid(True)
+        plt.plot(a['Valores'],label='Valores',marker='o')
+        plt.plot(a['Promedio a 3'],label='Media Móvil 3 años')
+        plt.plot(a['Promedio a 4'],label='Media Móvil 4 años')
+        plt.legend(loc=2)
+        if not os.path.isdir('static'):
+            os.mkdir('static')
         else:
-            return 0, 0
+            # Remove old plot files
+            for filename in glob.glob(os.path.join('static', '*.png')):
+                os.remove(filename)
+        # Use time since Jan 1, 1970 in filename in order make
+        # a unique filename that the browser has not chached
+        plotfile = os.path.join('static', str(time.time()) + '.png')
+        plt.savefig(plotfile)
+        plt.clf()
 
-    politica = {'method': "Qs",'param1': 50,'param2': 20}
-    class Order(object):
-        """Object that stores basic data of an order"""
-        def __init__(self, quantity, lead_time):
-            self.quantity = quantity
-            self.lead_time = lead_time
-    class product(object):
-        def __init__ (self,name,price,order_cost,initial_inventory,demand_dist,demand_p1,demand_p2,demand_p3,leadtime_dist,leadtime_p1,leadtime_p2,leadtime_p3):
-            self.name=name
-            self.price=price
-            self.order_cost=order_cost
-            self.initial_inventory=initial_inventory
-            self.demand_dist=demand_dist
-            self.demand_p1=demand_p1
-            self.demand_p2=demand_p2
-            self.demand_p3=demand_p3
-            self.leadtime_dist=leadtime_dist
-            self.leadtime_p1=leadtime_p1
-            self.leadtime_p2=leadtime_p2
-            self.leadtime_p3=leadtime_p3
-    producto = product("Mesa", 18.0,20.0,100,"Constant",80.0,0.0,0.0,"Constant",1.0,0.0,0.0)
+        del df['Año']
+        return render_template('/metspages/metprob/prommovil.html', form=form, tables=[df.to_html(classes='data table table-bordered')], grafica = plotfile, res1=resv1,
+        res2=resv2,res3=resv3,res4=resv4,res5=resv5,res6=resv6,res7=resv7,res8=resv8)
+    else:
+        N = None
+        resv1= None
+        resv2 = None
+        resv3 = None
+        resv4 = None
+        resv5 = None
+        resv6= None
+        resv7 = None
+        resv8 = None
+    return render_template('/metspages/metprob/prommovil.html', form=form, N=N, res1=resv1,
+        res2=resv2,res3=resv3,res4=resv4,res5=resv5,res6=resv6,res7=resv7,res8=resv8)
+#######------
 
-    num = num - 1
-    df = make_data(producto, politica, num)
-    df
+@app.route('/alisexponencial', methods=("POST", "GET"))
+def alisexponencial():
+
+    from flask import Blueprint, Flask, render_template, make_response, request, send_file
+    from wtforms import Form, FloatField, validators,StringField, IntegerField
+    from numpy import exp, cos, linspace
+    from math import pi
+    import io
+    import random
+    import os, time, glob
+    import numpy as np
+    import pandas as pd
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    class InputForm(Form):
+            N = StringField(
+                label='Escriba los valores de ingreso separados por comas (,)', default='5, 6 ,8, 7',
+                validators=[validators.InputRequired()])
+            M = FloatField(
+                label='Valor de alfa (entre 0 y 1)', default=0.1,
+                validators=[validators.InputRequired(), validators.NumberRange(min=0.1, max=1, message='Solo valores entre 0 y 1')])
+    
+    form = InputForm(request.form)
+    if request.method == 'POST' and form.validate():
+        # el DataFrame se llama movil
+        M = (form.M.data)
+        prueba = str(form.N.data)
+        ex = prueba.split(",")
+        ex2 =list(map(float,ex))
+        exporta = {'Año':ex2,
+        'Valores':ex2}
+        movil = pd.DataFrame(exporta)
+        # mostramos los 5 primeros registros
+        movil.head()
+        alfa = M
+        unoalfa = 1. - alfa
+        for i in range(0,movil.shape[0]-1):
+            movil.loc[movil.index[i+1],'SN'] = np.round(movil.iloc[i,1],1)
+        for i in range(2,movil.shape[0]):
+            movil.loc[movil.index[i],'SN'] = np.round(movil.iloc[i-1,1],1)*alfa + np.round(movil.iloc[i-1,2],1)*unoalfa
+        i=i+1
+        p2=np.round(movil.iloc[i-1,1],1)*alfa + np.round(movil.iloc[i-1,2],1)*unoalfa
+        movil['Error pronóstico'] = movil['Valores']-movil['SN']
+
+        plt.figure(figsize=[8,8])
+        plt.grid(True)
+        plt.plot(movil['Valores'],label='Valores originales')
+        plt.plot(movil['SN'],label='Suavización Exponencial')
+        plt.legend(loc=2)
+        if not os.path.isdir('static'):
+            os.mkdir('static')
+        else:
+            # Remove old plot files
+            for filename in glob.glob(os.path.join('static', '*.png')):
+                os.remove(filename)
+        # Use time since Jan 1, 1970 in filename in order make
+        # a unique filename that the browser has not chached
+        plotfile = os.path.join('static', str(time.time()) + '.png')
+        plt.savefig(plotfile)
+        plt.clf()
+
+        a = movil.append({'Año':2018,'Valores':"Pronóstico", 'SN':p2},ignore_index=True)
+        df = a
+        del df['Año']
+
+        deftemp1 = df['Valores']
+        deftemp2 = df['SN']
+        deftemp3 = df['Error pronóstico']
+        resv1 = deftemp1[1]
+        resv2 = deftemp2[1]
+        resv3 = deftemp2[2]
+        resv4 = deftemp3[2]
+        resv5 = deftemp1[2]
+        # movil
+        #%matplotlib inline
+        
+
+        return render_template('/metspages/metprob/alisexponencial.html', form=form, tables=[df.to_html(classes='data table table-bordered')],grafica = plotfile, M=alfa,res1=resv1,res2=resv2,res3=resv3,res4=resv4,res5=resv5)
+    else:
+        N = None
+        M = None
+        resv1 = None
+        resv2 = None
+        resv3 = None
+        resv4 = None
+        resv5 = None
+    return render_template('/metspages/metprob/alisexponencial.html', form=form, N=N, M=M,res1=resv1,res2=resv2,res3=resv3,res4=resv4,res5=resv5)
+######### Promedios fin ####
+
+### regresion lineal inicio ### 
 
 
-    data3 = df.to_html(classes="table table-dark table-striped", justify="justify-all", border=0)
+@app.route('/reglineal', methods=("POST", "GET"))
+def reglineal():
+    from flask import Blueprint, Flask, render_template, make_response, request, send_file
+    from wtforms import Form, FloatField, validators,StringField, IntegerField
+    from numpy import exp, cos, linspace
+    from math import pi
+    import io
+    import random
+    import os, time, glob
+    import numpy as np
+    import pandas as pd
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
 
-    writer = ExcelWriter("static/file/data.xlsx")                
-    df.to_excel(writer, index=False)
-    writer.save()          
-                
-    df.to_csv("static/file/data.csv", index=False) 
+    class InputForm(Form):
+        N = StringField(
+            label='Escriba los valores de X separados por comas (,)', default='7,1,10,5,4,3,13,10,2',
+            validators=[validators.InputRequired()])
+        M = StringField(
+            label='Escriba los valores de Y separados por comas (,)', default='2,9,2,5,7,11,2,5,14',
+            validators=[validators.InputRequired()])
+    
+    form = InputForm(request.form)
+    if request.method == 'POST' and form.validate():
+        # datos experimentales
+        # el DataFrame se llama movil
+        prueba = str(form.N.data)
+        prueba2 = str(form.M.data)
+        ex = prueba.split(",")
+        ex2 = prueba2.split(",")
+        valX =list(map(float,ex))
+        valY =list(map(float,ex2))
+        exporta = {'X':valX,
+        'Y':valY}
 
-    return render_template('imprimirSistemaInventario.html', data=data, data2=data2, data3=data3, image=plot_url)
+        a = pd.DataFrame(exporta)
+        x = a['X']
+        y= a['Y']
+        df = pd.DataFrame({'X':x,'Y':y})
+        x2 = df["X"]**2
+        xy = df["X"] * df["Y"]
+        df["X^2"] = x2
+        df["XY"] = xy
+        
+        # ajuste de la recta (polinomio de grado 1 f(x) = ax + b)
+        p = np.polyfit(x,y,1) # 1 para lineal, 2 para polinomio ...
+        p0,p1 = p
+        P0 = p0
+        P1 = p1
+        pfinal = -(p1/p0)
+        y_ajuste = p[0]*x + p[1]
+        df['Ajuste'] = y_ajuste
+
+        cant = len(df['Y'])
+
+        cant1 = df['X']
+        cant2 = df['Y']
+        cant3 = df['X^2']
+        cant4 = df['XY']
+
+        sum1 = cant1.values.sum()
+        sum2 = cant2.values.sum()
+        sum3 = cant3.values.sum()
+        sum4 = cant4.values.sum()
+        # dibujamos los datos experimentales de la recta
+        p_datos =plt.plot(x,y,'b.')
+        # Dibujamos la recta de ajuste
+        p_ajuste = plt.plot(x,y_ajuste, 'r-')
+        plt.title('Ajuste lineal por mínimos cuadrados')
+        plt.xlabel('Eje x')
+        plt.ylabel('Eje y')
+        plt.legend(('Datos experimentales','Ajuste lineal',), loc="upper right")
+        if not os.path.isdir('static'):
+            os.mkdir('static')
+        else:
+            # Remove old plot files
+            for filename in glob.glob(os.path.join('static', '*.png')):
+                os.remove(filename)
+        # Use time since Jan 1, 1970 in filename in order make
+        # a unique filename that the browser has not chached
+        plotfile = os.path.join('static', str(time.time()) + '.png')
+        plt.savefig(plotfile)
+        plt.clf()
+
+       
+        return render_template('/metspages/metreg/reglineal.html', form=form, tables=[df.to_html(classes='data table table-bordered')], grafica=plotfile, cant=cant, sum1=sum1,
+        sum2=sum2,sum3=sum3,sum4=sum4,P0=P0, P1=P1,fin=pfinal)
+    else:
+        N = None
+        M = None
+        cant= None
+        sum1 = None
+        sum2 = None
+        sum3 = None
+        sum4 = None
+        P0= None
+        P1 = None
+        fin= None
+    return render_template('/metspages/metreg/reglineal.html', form=form, N=N,M=M,cant=cant,sum1=sum1,sum2=sum2,sum3=sum3,sum4=sum4,P0=P0,P1=P1,fin=fin)
+
+#### ----Regresion lineal fin---- #########
+##-----Regresion cuadratica----------### 
+@app.route('/regnolineal', methods=("POST", "GET"))
+def regnolineal():
+    from flask import Blueprint, Flask, render_template, make_response, request, send_file
+    from wtforms import Form, FloatField, validators,StringField, IntegerField
+    from numpy import exp, cos, linspace
+    from math import pi
+    import io
+    import random
+    import os, time, glob
+    import numpy as np
+    import pandas as pd
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    class InputForm(Form):
+        N = StringField(
+            label='Escriba los valores de X separados por comas (,)', default='1850,1860,1870,1880,1890,1900,1910,1920,1930,1940,1950',
+            validators=[validators.InputRequired()])
+        M = StringField(
+            label='Escriba los valores de Y separados por comas (,)', default='23.2,31.4,39.8,50.2,62.9,76.0,92.0,105.7,122.8,131.7,151.1',
+            validators=[validators.InputRequired()])
+        C = IntegerField(
+            label='Dato a predecir', default=1,
+            validators=[validators.InputRequired()])
+    
+    form = InputForm(request.form)
+    if request.method == 'POST' and form.validate():
+        # Importar libreria numpy
+        # datos experimentales
+        # el DataFrame se llama movil
+        prueba = str(form.N.data)
+        prueba2 = str(form.M.data)
+        PRED = int(form.C.data)
+
+        
+        ex = prueba.split(",")
+        ex2 = prueba2.split(",")
+        valX =list(map(float,ex))
+        valY =list(map(float,ex2))
+        exporta = {'ValTiempo':valX,
+        'Y':valY}
+        a = pd.DataFrame(exporta)
+        cantidad = len(a['ValTiempo'])
+        c=2
+        x=[0]
+        ini=1
+        fin=-1
+        while c <= cantidad:
+            if c % 2 == 0:
+                x.append(ini)
+                ini=ini+1
+                c = c+1
+            else:
+                x.insert(0,fin)
+                fin=fin-1
+                c = c+1
+        a['X'] = x
+        x = a['X']
+        y= a['Y']
+        ValTiempo = a["ValTiempo"]
+        df = pd.DataFrame({'ValTiempo':ValTiempo,'X':x,'Y':y})
+        x2 = df["X"]**2
+        x3 = df["X"]**3
+        x4 = df["X"]**4
+        xy = df["X"] * df["Y"]
+        x2y = x2 * df["Y"]
+        df["X^2"] = x2
+        df["X^3"] = x3
+        df['X^4'] = x4
+        df["XY"] = xy
+        df["X^2Y"] = x2y
+
+        cant1 = df['X']
+        cant2 = df['Y']
+        cant3 = df['X^2']
+        cant4 = df['X^3']
+        cant5 = df['X^4']
+        cant6 = df['XY']
+        cant7 = df['X^2Y']
+
+        sum1 = cant1.values.sum()
+        sum2 = cant2.values.sum()
+        sum3 = cant3.values.sum()
+        sum4 = cant4.values.sum()
+        sum5 = cant5.values.sum()
+        sum6 = cant6.values.sum()
+        sum7 = cant7.values.sum()
+
+
+        p = np.polyfit(x,y,2)
+        p0,p1,p2 = p
+        P0 = p0
+        P1 = p1
+        P2 = p2
+        #print ("El valor de p0 = ", p0, "Valor de p1 = ", p1, " el valor de p2 = ",p2)
+        y_ajuste = p[0]*x*x + p[1]*x + p[2]
+        n=x.size
+        x1 = []
+        x2 = []
+        for i in [PRED]:
+            y1_ajuste = p[0]*i*i + p[1]*i + p[2]
+            x1.append(i)
+            x2.append(y1_ajuste)
+        df["Ajuste"]=y_ajuste
+        dp = pd.DataFrame({'ValTiempo':'Dato buscado','X':PRED, 'Y':[0],'Ajuste':x2})
+        res=x2[-1]
+        df = df.append(dp,ignore_index=True)
+        
+        p_datos =plt.plot(x,y,'b.')
+        # Dibujamos la curva de ajuste
+        p_ajuste = plt.plot(x,y_ajuste, 'r-')
+        plt.title('Ajuste Polinomial por mínimos cuadrados')
+        plt.xlabel('Eje x')
+        plt.ylabel('Eje y')
+        plt.legend(('Datos experimentales','Ajuste Polinomial',), loc="upper left")
+        if not os.path.isdir('static'):
+            os.mkdir('static')
+        else:
+            # Remove old plot files
+            for filename in glob.glob(os.path.join('static', '*.png')):
+                os.remove(filename)
+        # Use time since Jan 1, 1970 in filename in order make
+        # a unique filename that the browser has not chached
+        plotfile = os.path.join('static', str(time.time()) + '.png')
+        plt.savefig(plotfile)
+        plt.clf()
+
+        
+        return render_template('/metspages/metreg/regnolineal.html', form=form, tables=[df.to_html(classes='data table table-bordered')], grafica=plotfile, sum1=sum1,
+        sum2=sum2,sum3=sum3,sum4=sum4,sum5=sum5,sum6=sum6,sum7=sum7,P0=P0, P1=P1,P2=P2,cant=cantidad,pron=PRED,res=res)
+    else:
+        N = None
+        M = None
+        C = None
+        sum1 = None
+        sum2 = None
+        sum3 = None
+        sum4 = None
+        sum5 = None
+        sum6 = None
+        sum7= None
+        P0= None
+        P1 = None
+        P2= None
+        cantidad = None
+        PRED= None
+        res= None
+    return render_template('/metspages/metreg/regnolineal.html', form=form, N=N, M=M, C=C,sum1=sum1,
+        sum2=sum2,sum3=sum3,sum4=sum4,sum5=sum5,sum6=sum6,sum7=sum7,P0=P0, P1=P1,P2=P2,cant=cantidad,pron=PRED,res=res)
+
+
+#### regresion lineal cudratica fin ####
+
+
+#### montecarlo ####
+@app.route('/montecarloaditivo', methods=("POST", "GET"))
+def montecarloaditivo():
+    from flask import Blueprint, Flask, render_template, make_response,request, send_file
+    from wtforms import Form, FloatField, validators,StringField, IntegerField
+    from numpy import exp, cos, linspace
+    import math
+    import itertools
+    import io
+    import random
+    import os, time, glob
+    import numpy as np
+    import pandas as pd
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    class InputForm(Form):
+        L = StringField(
+            label='Escriba los valores de ingreso separados por comas (,)', default='5501.0, 6232.7, 8118.3, 10137.00, 10449.50, 12794.60, 9939.10,  13193.00, 16036.2, 18496.90, 18709.30, 19363.50, 16521.50, 15175.40,  16927.00',
+            validators=[validators.InputRequired()])
+        N = IntegerField(
+            label='Número de eventos que desea', default=20,
+            validators=[validators.InputRequired()])
+        M = IntegerField(
+            label='Módulo', default=1000,
+            validators=[validators.InputRequired()])
+        A = IntegerField(
+            label='Multiplicador', default=747,
+            validators=[validators.InputRequired()])
+        X0 = IntegerField(
+            label='Semilla', default=123,
+            validators=[validators.InputRequired()])
+        C = IntegerField(
+            label='Incremento', default=457,
+            validators=[validators.InputRequired()])
+
+    form = InputForm(request.form)
+    if request.method == 'POST' and form.validate():
+        # datos experimentales
+        # el DataFrame se llama movil
+        prueba = str(form.L.data)
+        ex = prueba.split(",")
+        ex2 =list(map(float,ex))
+        exporta = {'Año':ex2,
+        'Valores':ex2}
+        a = pd.DataFrame(exporta)
+        cant = len(a['Valores'])
+        cantidad = list(range(cant + 1))
+        cantidad[1:]
+        a['Año'] = cantidad[1:]
+
+
+        dfval = exporta['Valores']
+        
+        # Ordenamos por Día
+        suma = a['Valores'].sum()
+        ##cant=len(exporta)
+        suma
+        x1 = a.assign(Probabilidad=lambda x: x['Valores'] / suma)
+        x2 = x1.sort_values('Año')
+
+        salvando = x2['Año']
+        del x2['Año']
+        a=x2['Probabilidad']
+        a1= np.cumsum(a) #Cálculo la suma acumulativa de las probabilidades
+        x2['FPA'] =a1
+        x2['Min'] = x2['FPA']
+        x2['Max'] = x2['FPA']
+        lis = x2["Min"].values
+        lis2 = x2['Max'].values
+        lis[0]= 0
+        for i in range(1,len(x2['Valores'])):
+            lis[i] = lis2[i-1]
+        x2['Min'] = lis
+
+        dfprob = x2['Probabilidad']
+
+        n = int(form.N.data)
+        m = int(form.M.data)
+        a = int(form.A.data)
+        x0 = int(form.X0.data)
+        c = int(form.C.data)
+        x = [1] * n
+        r = [0.1] * n
+        for i in range(0, n):
+            x[i] = ((a*x0)+c) % m
+            x0 = x[i]
+            r[i] = x0 / m
+        # llenamos nuestro DataFrame
+        d = {'ri': r }
+        dfMCL = pd.DataFrame(data=d)
+        dfMCL
+        max = x2 ['Max'].values
+        min = x2 ['Min'].values
+        def busqueda(arrmin, arrmax, valor):
+        #print(valor)
+            for i in range (len(arrmin)):
+            # print(arrmin[i],arrmax[i])
+                if valor >= arrmin[i] and valor <= arrmax[i]:
+                    return i
+                    #print(i)
+            return -1
+        xpos = dfMCL['ri']
+        posi = [0] * n
+        #print (n)
+        for j in range(n):
+            val = xpos[j]
+            pos = busqueda(min,max,val)
+            posi[j] = pos
+        df1 = x2
+
+        simula = []
+        for j in range(n):
+            for i in range(n):
+                sim = x2.loc[salvando == posi[i]+1]
+                simu = sim.filter(['Valores']).values
+                iterator = itertools.chain(*simu)
+                for item in iterator:
+                    a=item
+                simula.append(round(a,2))
+        dfMCL["Simulación"] = pd.DataFrame(simula)
+        df2 = dfMCL
+        return render_template('/metspages/metsim/montecarlo.html', form=form, tables=[df1.to_html(classes='data table table-bordered')], tables2=[df2.to_html(classes='data table table-bordered')], suma=suma,vald1=dfval[0],
+        cant=cant,dfprob=dfprob[0])
+    else:
+        N = None
+        M = None
+        A = None
+        X0 = None
+        C = None
+        L = None
+        grafica = None
+        vald1= None
+        cant= None
+        suma= None
+        dfprob = None
+    return render_template('/metspages/metsim/montecarlo.html', form=form, L=L, N=N, M=M, A=A, X0=X0, C=C, grafica=grafica,suma=suma,vald1=vald1,cant=cant,dfprob=dfprob)
+
+###### fin MONTECARLO  ####
+
+#### inicio inventario EQQ ###
+
+
+@app.route('/inventarioEOQ', methods=("POST", "GET"))
+def inventarioEOQ():
+    from flask import Blueprint, Flask, render_template, make_response, request, send_file
+    from wtforms import Form, FloatField, validators,StringField, IntegerField
+    from numpy import exp, cos, linspace
+    from math import pi, sqrt
+    import io
+    import random
+    import os, time, glob
+    import numpy as np
+    import pandas as pd
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    class InputForm(Form):
+        D = FloatField(
+            label='Valor de la demanda anual', default=12000,
+            validators=[validators.InputRequired()])
+        CO = FloatField(
+            label='Costo de ordenar', default=25.00,
+            validators=[validators.InputRequired()])
+        CH = FloatField(
+            label='Costo de mantenimiento', default=0.50,
+            validators=[validators.InputRequired()])
+        P = FloatField(
+            label='Costo por unidad del producto', default=2.50,
+            validators=[validators.InputRequired()])
+        TE = IntegerField(
+            label='Tiempo de espera del producto en días', default=5,
+            validators=[validators.InputRequired()])
+        DA = IntegerField(
+            label='Días habíles del año', default=250,
+            validators=[validators.InputRequired()])
+        PE = IntegerField(
+            label='Periodo del inventario', default=30,
+            validators=[validators.InputRequired()])
+    
+    form = InputForm(request.form)
+    if request.method == 'POST' and form.validate():
+       
+        D = float(form.D.data)  #Cantidad que se tiene pa distribuir
+        Co = float(form.CO.data)
+        Ch = float(form.CH.data)
+        P = float(form.P.data)
+        Tespera = int(form.TE.data)
+        DiasAno = int(form.DA.data)
+        Periodo = int(form.PE.data)
+        Q = round(sqrt(((2*Co*D)/Ch)),2)
+        N = round(D / Q,2)
+        R = round((D / DiasAno) * Tespera,2)
+        T = round(DiasAno / N,2)
+        CoT = N * Co
+        ChT = round(Q / 2 * Ch,2)
+        MOQ = round(CoT + ChT,2)
+        CTT = round(P * D + MOQ,2)
+        
+
+        # Programa para generar el gráfico de costo mínimo
+        indice = ['Q','Costo_ordenar','Costo_Mantenimiento','Costo_total','Diferencia_Costo_Total']
+        # Generamos una lista ordenada de valores de Q
+
+        periodo = np.arange(1,Periodo)
+        def genera_lista(Q):
+            n= Periodo-1
+            Q_Lista = []
+            i=1
+            Qi = Q
+            Q_Lista.append(Qi)
+            for i in range(1,int(Periodo/2)):
+                Qi = Qi - 60
+                Q_Lista.append(Qi)
+
+            Qi = Q
+            for i in range(int(Periodo/2), n):
+                Qi = Qi + 60
+                Q_Lista.append(Qi)
+
+            return Q_Lista
+        Lista= genera_lista(Q)
+        Lista.sort()
+        dfQ = pd.DataFrame(index=periodo, columns=indice).fillna(0)
+        dfQ['Q'] = Lista
+        #dfQ
+        for period in periodo:
+            dfQ['Costo_ordenar'][period] = D * Co / dfQ['Q'][period]
+            dfQ['Costo_Mantenimiento'][period] = dfQ['Q'][period] * Ch / 2
+            dfQ['Costo_total'][period] = dfQ['Costo_ordenar'][period] + dfQ['Costo_Mantenimiento'][period]
+            dfQ['Diferencia_Costo_Total'][period] = dfQ['Costo_total'][period] - MOQ
+        pd.set_option('mode.chained_assignment', None)
+        df = dfQ
+
+
+        dfG = dfQ.loc[:,'Costo_ordenar':'Costo_total']
+        dfG
+        dfG.plot()
+
+        if not os.path.isdir('static'):
+            os.mkdir('static')
+        else:
+            # Remove old plot files
+            for filename in glob.glob(os.path.join('static', '*.png')):
+                os.remove(filename)
+        # Use time since Jan 1, 1970 in filename in order make
+        # a unique filename that the browser has not chached
+        plotfile = os.path.join('static', str(time.time()) + '.png')
+        plt.savefig(plotfile)
+        plt.clf()
+
+       
+        return render_template('/metspages/modsim/inventeoq.html', form=form, tables=[df.to_html(classes='data table table-bordered')], grafica=plotfile, dato1=Q,
+        dato2=CoT,dato3=ChT,dato4=MOQ,dato5=CTT,dato6=N,dato7=R,dato8=T)
+    else:
+        D = None
+        CO = None
+        CH= None
+        P = None
+        TE = None
+        DA = None
+    return render_template('/metspages/modsim/inventeoq.html', form=form, D=D,CO=CO,CH=CH,P=P,TE=TE,DA=DA)
+
+### fiin inventario
 
 
 @app.route('/lineaEspera')
